@@ -1066,10 +1066,19 @@ fn require_namespace(rt: &ResourceType, namespace: &Option<String>) -> Result<()
 }
 
 fn row_from_object(obj: &serde_json::Value, cells: Vec<serde_json::Value>) -> TableRow {
-    // With includeObject=None the printer's first cell is the name.
+    // With includeObject=None the printer's first cell is the name — but some
+    // printers DECORATE it: the default StorageClass prints "<name> (default)".
+    // Taken literally that lands in a request path and fails to build as a URI.
+    // An object name can never contain a space (RFC 1123 subdomain), so cutting
+    // at the first one strips any such suffix while leaving names that do carry
+    // punctuation intact — `system:controller:deployment-controller` and the
+    // like.
     let fallback_name = cells
         .first()
         .and_then(|c| c.as_str())
+        .unwrap_or_default()
+        .split(' ')
+        .next()
         .unwrap_or_default()
         .to_string();
     TableRow {
@@ -4808,6 +4817,39 @@ pub async fn count_resources(
         }
     });
     Ok(join_all(tasks).await)
+}
+
+#[cfg(test)]
+mod row_name_tests {
+    use super::row_from_object;
+    fn cells(first: &str) -> Vec<serde_json::Value> {
+        vec![first.into(), "ebs.csi.aws.com".into(), "Delete".into()]
+    }
+    /// With includeObject=Metadata the object carries the real name and the
+    /// decorated cell is irrelevant.
+    #[test]
+    fn prefers_the_object_name() {
+        let obj = serde_json::json!({"metadata": {"name": "aws-ebs-gp3"}});
+        assert_eq!(row_from_object(&obj, cells("aws-ebs-gp3 (default)")).name, "aws-ebs-gp3");
+    }
+    /// With includeObject=None there is no object, so the cell is all we have —
+    /// and kubectl marks the default StorageClass right there in it. Keeping the
+    /// suffix put a space and parens in the request path, which failed to build
+    /// as a URI, so only the default class could not be opened.
+    #[test]
+    fn strips_a_decorated_cell() {
+        let none = serde_json::json!({});
+        assert_eq!(row_from_object(&none, cells("aws-ebs-gp3 (default)")).name, "aws-ebs-gp3");
+        assert_eq!(row_from_object(&none, cells("aws-ebs-gp2")).name, "aws-ebs-gp2");
+    }
+    /// Names may carry punctuation; only a space means "this is not the name".
+    #[test]
+    fn keeps_punctuated_names() {
+        let none = serde_json::json!({});
+        for n in ["system:controller:deployment-controller", "kube-root-ca.crt", "a.b-c.d"] {
+            assert_eq!(row_from_object(&none, cells(n)).name, n);
+        }
+    }
 }
 
 #[cfg(test)]

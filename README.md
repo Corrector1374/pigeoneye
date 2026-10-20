@@ -58,10 +58,17 @@ coalesced into batches, and a view cache that resumes the watch on return.
   shortcut acts on the focused pane.
 - **Cross-cluster Issues** — one ⚠ list of pods in a bad state and nodes
   that aren't Ready, gathered from *every* connected cluster and refreshed
-  in the background. `↵` jumps straight to the resource in its own tab.
+  in the background. `↵` jumps straight to the resource in its own tab. The
+  list is windowed, so it opens as fast with four thousand problems as with
+  four — which matters, because it is longest exactly when something is on
+  fire.
 - **Rollout at a glance** — Deployments, StatefulSets, DaemonSets,
   ReplicaSets and Argo **Rollouts** carry a dot while replicas are still
-  spreading, so a half-finished rollout is visible without opening it.
+  spreading, so a half-finished rollout is visible without opening it. Open
+  one and it says where the rollout actually is — *Rolling out*, *Applying*
+  (the spec changed, the controller hasn't acted on it yet), *Not fully
+  available*, *Paused*, *Stuck* or *Synced* — with the replica and
+  generation numbers behind the verdict, refreshing itself until it settles.
 - **Share the exact view** — copy a `peye://` link to the view, or to a
   single resource. Whoever opens it lands on the same cluster, kind,
   namespace and row.
@@ -81,7 +88,10 @@ coalesced into batches, and a view cache that resumes the watch on return.
   `exec` block holds one command and has no "run this first" hook, so each
   context can also carry a **pre-connect command** of its own — `tsh
   login`, a bastion tunnel, a VPN — run before connecting and kept on your
-  machine rather than in a shared kubeconfig.
+  machine rather than in a shared kubeconfig. A cluster whose credentials
+  have genuinely expired is parked out of background polling until you sign
+  in again, so a credential helper that opens a browser (`aws-vault`,
+  `oidc-login`) is never re-run on a timer behind your back.
 - **Keyboard-first**, color-coded multi-cluster tabs, light/dark, and
   **in-app updates** — the top bar flags a new release and upgrades in
   place, no `brew` needed.
