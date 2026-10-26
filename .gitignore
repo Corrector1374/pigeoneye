@@ -10,3 +10,5 @@ pigeon_image.png
 
 .DS_Store
 src/assets/png
+.vscode/settings.json
+.tools/
